@@ -11,7 +11,7 @@ function setTheme(dark) {
   $('theme-toggle').setAttribute('aria-pressed', String(dark));
   $('theme-toggle').setAttribute('aria-label', dark ? 'Enable light theme' : 'Enable dark theme');
   $('theme-toggle').innerHTML = dark ? '☀ <span>Day mode</span>' : '☾ <span>Night mode</span>';
-  document.querySelector('meta[name="theme-color"]').content = dark ? '#17231f' : '#f5f5ef';
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#000000' : '#f5f5ef';
 }
 try { setTheme(localStorage.getItem('still-theme') === 'dark'); } catch (_) { setTheme(false); }
 function updateSoundButton() {
