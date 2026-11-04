@@ -20,7 +20,11 @@ function updateSoundButton() {
   $('sound-test').disabled = !soundOn || running;
   if (!soundOn) $('sound-status').textContent = ''; 
 }
+function setAudioSession(type) {
+  try { if (navigator.audioSession) navigator.audioSession.type = type; } catch (_) {}
+}
 function createAudioContext() {
+  setAudioSession('playback');
   const Audio = window.AudioContext || window.webkitAudioContext;
   if (!Audio) throw new Error('Audio is not supported in this browser.');
   audioContext ||= new Audio();
@@ -44,6 +48,7 @@ function playTone(context, at, frequency, duration = 0.7) {
 function stopSounds() {
   for (const node of scheduledSounds) { try { node.stop(); } catch (_) {} node.disconnect(); }
   scheduledSounds = [];
+  setAudioSession('auto');
 }
 function scheduleSounds() {
   stopSounds();
@@ -63,16 +68,19 @@ function scheduleSounds() {
     }
     const end = now + minutes * 60 - position;
     tone(end, 523.25); tone(end + 0.75, 659.25, 1);
-  } catch (_) { $('sound-status').textContent = 'Audio could not start. Check your phone’s sound settings.'; }
+    const lastTone = scheduledSounds[scheduledSounds.length - 1];
+    lastTone.addEventListener('ended', () => { if (!running) setAudioSession('auto'); }, { once: true });
+  } catch (_) { setAudioSession('auto'); $('sound-status').textContent = 'Audio could not start. Check your phone’s sound settings.'; }
 }
 $('theme-toggle').addEventListener('click', () => { const dark = document.documentElement.dataset.theme !== 'dark'; setTheme(dark); savePreference('still-theme', dark ? 'dark' : 'light'); });
 $('sound-test').addEventListener('click', () => {
   try {
     const context = createAudioContext(), now = context.currentTime;
     playTone(context, now + 0.05, 523.25);
-    playTone(context, now + 1, 392);
+    const lastTone = playTone(context, now + 1, 392);
+    lastTone.addEventListener('ended', () => { if (!running) setAudioSession('auto'); }, { once: true });
     $('sound-status').textContent = 'Listen for two tones: higher for in, lower for out.';
-  } catch (_) { $('sound-status').textContent = 'Audio could not start. Check your phone’s sound settings.'; }
+  } catch (_) { setAudioSession('auto'); $('sound-status').textContent = 'Audio could not start. Check your phone’s sound settings.'; }
 });
 $('sound-toggle').addEventListener('click', () => { soundOn = !soundOn; savePreference('still-sound', soundOn ? 'on' : 'off'); updateSoundButton(); if (running) scheduleSounds(); });
 updateSoundButton();
