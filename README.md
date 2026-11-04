@@ -1,6 +1,6 @@
 # Still
 
-A small, dependency-free mindful breathing app. Choose a 3, 5, or 10 minute session and follow a four-second inhale and six-second exhale. Completed sessions count toward a daily goal of three.
+A small, dependency-free mindful breathing app. Choose a 3, 5, or 10 minute session and follow a four-second inhale and six-second exhale. Completed sessions count toward a daily goal of three. Night mode and optional distinct inhale and exhale tones can be toggled in the app; both preferences are saved on the device.
 
 Progress is stored in the browser's local storage, so it stays on that browser and device; clearing site data removes it. It does not sync across devices.
 
