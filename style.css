@@ -6,3 +6,4 @@
 @media(max-width:480px){.header-controls{gap:8px}.top-note{display:none}.setting-button{padding:9px 12px}}
 /* True black surfaces for night use. */
 [data-theme="dark"] body,[data-theme="dark"] .exercise-card,[data-theme="dark"] .week-card,[data-theme="dark"] .habit-card{background:#000}
+.sound-controls{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:18px}.sound-controls .sound-toggle{margin:0}.sound-test{font:600 11px 'DM Sans',sans-serif;cursor:pointer;color:#627d69;background:transparent;border:1px solid #e0e9dd;border-radius:24px;padding:8px 14px}.sound-test:disabled{opacity:.45;cursor:default}.sound-status{font-size:11px;color:#758a79;min-height:0;margin:8px 0 0}.sound-status:empty{display:none}[data-theme="dark"] .sound-test{color:#d1e2d2;border-color:#4b6251}[data-theme="dark"] .sound-status{color:#bdcfbe}

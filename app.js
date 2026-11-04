@@ -17,6 +17,29 @@ try { setTheme(localStorage.getItem('still-theme') === 'dark'); } catch (_) { se
 function updateSoundButton() {
   $('sound-toggle').setAttribute('aria-pressed', String(soundOn));
   $('sound-toggle').innerHTML = soundOn ? '♪ <span>Sound on</span>' : '♪ <span>Sound off</span>';
+  $('sound-test').disabled = !soundOn || running;
+  if (!soundOn) $('sound-status').textContent = ''; 
+}
+function createAudioContext() {
+  const Audio = window.AudioContext || window.webkitAudioContext;
+  if (!Audio) throw new Error('Audio is not supported in this browser.');
+  audioContext ||= new Audio();
+  if (audioContext.state !== 'running') {
+    audioContext.resume().then(() => {
+      if (audioContext.state !== 'running') $('sound-status').textContent = 'Audio is paused. Check your phone’s sound settings.';
+    }).catch(() => { $('sound-status').textContent = 'Audio could not start. Check your phone’s sound settings.'; });
+  }
+  return audioContext;
+}
+function playTone(context, at, frequency, duration = 0.7) {
+  const oscillator = context.createOscillator(), gain = context.createGain();
+  oscillator.type = 'sine'; oscillator.frequency.value = frequency;
+  gain.gain.setValueAtTime(0, at); gain.gain.linearRampToValueAtTime(0.22, at + 0.08);
+  gain.gain.exponentialRampToValueAtTime(0.001, at + duration);
+  oscillator.connect(gain); gain.connect(context.destination);
+  oscillator.start(at); oscillator.stop(at + duration);
+  oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  return oscillator;
 }
 function stopSounds() {
   for (const node of scheduledSounds) { try { node.stop(); } catch (_) {} node.disconnect(); }
@@ -25,21 +48,12 @@ function stopSounds() {
 function scheduleSounds() {
   stopSounds();
   if (!soundOn || !running) return;
-  const Audio = window.AudioContext || window.webkitAudioContext;
-  if (!Audio) return;
   try {
-    audioContext ||= new Audio();
-    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    createAudioContext();
+    $('sound-status').textContent = ''; 
     const position = Math.min(minutes * 60, elapsed + (Date.now() - startedAt) / 1000);
     const now = audioContext.currentTime;
-    function tone(at, frequency, duration = 0.7) {
-      const oscillator = audioContext.createOscillator(), gain = audioContext.createGain();
-      oscillator.type = 'sine'; oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(0, at); gain.gain.linearRampToValueAtTime(0.13, at + 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.001, at + duration);
-      oscillator.connect(gain); gain.connect(audioContext.destination);
-      oscillator.start(at); oscillator.stop(at + duration); scheduledSounds.push(oscillator);
-    }
+    function tone(at, frequency, duration = 0.7) { scheduledSounds.push(playTone(audioContext, at, frequency, duration)); }
     // Cue the current phase immediately, then schedule each remaining boundary.
     tone(now + 0.02, position % 10 < 4 ? 523.25 : 392);
     for (let cycle = Math.floor(position / 10) * 10; cycle < minutes * 60; cycle += 10) {
@@ -49,9 +63,17 @@ function scheduleSounds() {
     }
     const end = now + minutes * 60 - position;
     tone(end, 523.25); tone(end + 0.75, 659.25, 1);
-  } catch (_) { /* The visual guide still works if audio is unavailable. */ }
+  } catch (_) { $('sound-status').textContent = 'Audio could not start. Check your phone’s sound settings.'; }
 }
 $('theme-toggle').addEventListener('click', () => { const dark = document.documentElement.dataset.theme !== 'dark'; setTheme(dark); savePreference('still-theme', dark ? 'dark' : 'light'); });
+$('sound-test').addEventListener('click', () => {
+  try {
+    const context = createAudioContext(), now = context.currentTime;
+    playTone(context, now + 0.05, 523.25);
+    playTone(context, now + 1, 392);
+    $('sound-status').textContent = 'Listen for two tones: higher for in, lower for out.';
+  } catch (_) { $('sound-status').textContent = 'Audio could not start. Check your phone’s sound settings.'; }
+});
 $('sound-toggle').addEventListener('click', () => { soundOn = !soundOn; savePreference('still-sound', soundOn ? 'on' : 'off'); updateSoundButton(); if (running) scheduleSounds(); });
 updateSoundButton();
 const dayKey = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -76,7 +98,7 @@ function draw() {
   if (running && current >= total) { complete(); return; }
   if (running) { const inhale = current % 10 < 4; $('orb').className = `breath-orb ${inhale ? 'inhale' : 'exhale'}`; $('phase').textContent = inhale ? 'Breathe in' : 'Breathe out'; $('phase-detail').textContent = inhale ? 'Gently fill your lungs' : 'Slowly let it go'; }
 }
-function controls() { $('start').innerHTML = running ? 'Pause session <span>Ⅱ</span>' : elapsed ? 'Resume breathing <span>↗</span>' : 'Begin breathing <span>↗</span>'; $('reset').hidden = !running && !elapsed; document.querySelectorAll('[data-minutes]').forEach(b => { b.disabled = running || elapsed > 0; b.classList.toggle('selected', +b.dataset.minutes === minutes); b.setAttribute('aria-pressed', String(+b.dataset.minutes === minutes)); }); }
+function controls() { updateSoundButton(); $('start').innerHTML = running ? 'Pause session <span>Ⅱ</span>' : elapsed ? 'Resume breathing <span>↗</span>' : 'Begin breathing <span>↗</span>'; $('reset').hidden = !running && !elapsed; document.querySelectorAll('[data-minutes]').forEach(b => { b.disabled = running || elapsed > 0; b.classList.toggle('selected', +b.dataset.minutes === minutes); b.setAttribute('aria-pressed', String(+b.dataset.minutes === minutes)); }); }
 function reset() { stopSounds(); running = false; elapsed = 0; clearInterval(interval); $('orb').className = 'breath-orb'; $('phase').textContent = 'Ready?'; $('phase-detail').textContent = 'Your time starts when you do'; $('timer-caption').textContent = 'CHOOSE YOUR MOMENT'; controls(); draw(); }
 function complete() { running = false; clearInterval(interval); elapsed = 0; const key = dayKey(new Date()); history[key] = (history[key] || 0) + 1; try { localStorage.setItem(storageKey, JSON.stringify(history)); } catch (_) { $('progress-caption').textContent = 'Your browser could not save this session.'; } renderHistory(); controls(); $('timer').textContent = '00:00'; $('timer-caption').textContent = 'SESSION COMPLETE'; $('orb').className = 'breath-orb'; $('phase').textContent = 'Well done'; $('phase-detail').textContent = 'Thank you for taking this time'; }
 $('start').addEventListener('click', () => { if (running) { elapsed += (Date.now()-startedAt)/1000; running = false; stopSounds(); clearInterval(interval); $('orb').className = 'breath-orb'; $('phase').textContent = 'Paused'; $('phase-detail').textContent = 'Take your time'; $('timer-caption').textContent = 'SESSION PAUSED'; } else { running = true; startedAt = Date.now(); $('timer-caption').textContent = 'TIME REMAINING'; scheduleSounds(); draw(); interval = setInterval(draw, 100); } controls(); });
